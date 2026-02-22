@@ -21,7 +21,7 @@ data(ds)   # disposition (completion/withdrawal info)
 data(mh)   # medical history (for baseline conditions)
 
 # -----------------------------------------------------------------------------
-# 1. Start with DM as the backbone (one row per subject)
+# 1. Start with demographics as the backbone (one row per subject)
 # -----------------------------------------------------------------------------
 adsl <- dm |>
   filter(ARMCD != "SCRNFAIL") |>   # exclude screen failures
@@ -31,12 +31,13 @@ adsl <- dm |>
 # -----------------------------------------------------------------------------
 # 2. Derive treatment dates from EX domain
 # -----------------------------------------------------------------------------
+names(ex)
 adsl <- adsl |>
   derive_vars_merged(
     dataset_add = ex,
     by_vars     = exprs(STUDYID, USUBJID),
-    new_vars    = exprs(TRTSDTM = EXSTDTM, TRTEDTM = EXENDTM),
-    order       = exprs(EXSTDTM),
+    new_vars    = exprs(TRTSDTM = EXSTDTC, TRTEDTM = EXENDTC),
+    order       = exprs(EXSTDTC),
     mode        = "first"   # first exposure = treatment start
   )
 
@@ -50,7 +51,7 @@ adsl <- adsl |>
   )
 
 # -----------------------------------------------------------------------------
-# 4. Derive age groups (common in demographic tables)
+# 4. Categorize age groups.
 # -----------------------------------------------------------------------------
 adsl <- adsl |>
   mutate(
@@ -76,5 +77,5 @@ adsl <- adsl |>
 # -----------------------------------------------------------------------------
 # 6. Save output
 # -----------------------------------------------------------------------------
-saveRDS(adsl, "data/adam/adsl.rds")
+saveRDS(adsl, "/home/jeremy/Documents/GitHub/clinical-adam-pipeline/data/adsl.rds")
 message("ADSL created: ", nrow(adsl), " subjects")
