@@ -12,47 +12,43 @@ library(pharmaversesdtm)
 library(dplyr)
 library(lubridate)
 
-# -----------------------------------------------------------------------------
-# 0. Load SDTM source data
-# -----------------------------------------------------------------------------
+# DATA LOADING AND PACKAGE IMPORTING
+
+# Load SDTM source data
 data(dm)   # demographics
 data(ex)   # exposure (to get treatment start/end)
 data(ds)   # disposition (completion/withdrawal info)
 data(mh)   # medical history (for baseline conditions)
 
-# -----------------------------------------------------------------------------
-# 1. Start with demographics as the backbone (one row per subject)
-# -----------------------------------------------------------------------------
+
+# Pull in demographics information from pharmaversedtm package
 adsl <- dm |>
   filter(ARMCD != "SCRNFAIL") |>   # exclude screen failures
   select(STUDYID, USUBJID, SUBJID, SITEID, AGE, AGEU, SEX, RACE, ETHNIC,
          ARM, ARMCD, ACTARM, ACTARMCD, COUNTRY, DMDTC, RFSTDTC, RFENDTC)
 
-# -----------------------------------------------------------------------------
-# 2. Derive treatment dates from EX domain
-# -----------------------------------------------------------------------------
-names(ex)
+# Merging treatment dates from EX into ADSL.
+# derive_vars_merged() is an admiral package function
+# takes in EX domain and pulls 1 value per patient into ADSL
+
+# names(ex)
 adsl <- adsl |>
   derive_vars_merged(
     dataset_add = ex,
-    by_vars     = exprs(STUDYID, USUBJID),
+    by_vars     = exprs(STUDYID, USUBJID), # join key
     new_vars    = exprs(TRTSDTM = EXSTDTC, TRTEDTM = EXENDTC),
     order       = exprs(EXSTDTC),
     mode        = "first"   # first exposure = treatment start
   )
 
-# -----------------------------------------------------------------------------
-# 3. Derive TRTSDT / TRTEDT (date only versions)
-# -----------------------------------------------------------------------------
+# 3. Deriving TRTSDT / TRTEDT (date only versions)
 adsl <- adsl |>
   mutate(
     TRTSDT = as.Date(TRTSDTM),
     TRTEDT = as.Date(TRTEDTM)
   )
 
-# -----------------------------------------------------------------------------
-# 4. Categorize age groups.
-# -----------------------------------------------------------------------------
+# 4. Categorize age groups into three sections. Under 18, 18 to 64 and 65+
 adsl <- adsl |>
   mutate(
     AGEGR1 = case_when(
@@ -67,15 +63,15 @@ adsl <- adsl |>
     )
   )
 
-# -----------------------------------------------------------------------------
-# 5. Derive SAFFL (safety population flag)
+# Derive SAFFL (safety population flag)
 #    Definition: randomized AND received at least one dose
-# -----------------------------------------------------------------------------
+
+# Checking SCRNFAIL, tells if the patient has a treatment start date.
+# Filter on patients that actually received the treatment, even if it 
+# was a placebo
 adsl <- adsl |>
   mutate(SAFFL = if_else(!is.na(TRTSDT) & ARMCD != "SCRNFAIL", "Y", "N"))
 
-# -----------------------------------------------------------------------------
-# 6. Save output
-# -----------------------------------------------------------------------------
-saveRDS(adsl, "/home/jeremy/Documents/GitHub/clinical-adam-pipeline/data/adsl.rds")
+# Save output for next step
+saveRDS(adsl, "/home/jeremy/Documents/GitHub/clinical-adam-pipeline/data/adam/adsl.rds")
 message("ADSL created: ", nrow(adsl), " subjects")
