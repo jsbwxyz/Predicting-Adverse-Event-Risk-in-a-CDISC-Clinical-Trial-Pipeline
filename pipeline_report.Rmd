@@ -1,0 +1,86 @@
+---
+title: "Clinical ADaM Pipeline"
+subtitle: "CDISC Pilot Study — Xanomeline vs Placebo"
+author: "Jeremy"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+
+library(admiral)
+library(pharmaversesdtm)
+library(dplyr)
+library(lubridate)
+library(Tplyr)
+library(gt)
+library(survival)
+library(ggsurvfit)
+```
+
+# Introduction and Overview
+
+This lab demonstrates a complete ADaM data pipeline built using the pharmaverse R ecosystem. Source data is drawn from the CDISC pilot SDTM dataset, which represents a real Phase III clinical trial comparing Zanomeline (low and high dose) against Placebo in Alzheimer's disease patients.
+
+The pipeline follows the same standards used in FDA regulatory submissions - CDISC SDTM as input, ADaM datasets as analysis-ready output, and TLFs (Tables, Listings, Figures) as the final deliverable.
+
+---
+
+# Data sources
+
+All source data comes from the 'pharmaversedtm' R package, which contains CDISC-compliant SDTM test datasets maintained by the pharmaverse community.
+
+The following SDTM domains are used:
+
+Domain | Description              | Rows  |
+|------|--------------------------|-------|
+DM      Demographics                One per patient
+EX      Exposure (dosing records)   Many per patient
+AE      Adverse Events              Many per patient
+DS      Disposition                 One per patient
+
+---
+
+# ADaM Datasets
+
+## ADSL - Subject Level Analysis Dataset
+
+ADSL is the foundation of every ADaM package. It contains exactly one row per patient and captures baseline characteristics, treatment, assignment, and population flags. Every downstream dataset joins back to ADSL using 'USUBJID' as the key.
+
+# Loading in ADSL
+```{r load-adsl}
+adsl <- readRDS("data/adam/adsl.rds")
+```
+
+# Population Summary
+```{r adsl-summary}
+adsl |>
+  count(ARM, SAFFL) |>
+  gt() |>
+  tab_header(title = "Patient Counts by Treatment Arm and Safety Flag") |>
+  cols_label(
+    ARM = "Treatment Arm",
+    SAFFL = "Safety Population",
+    n = "N"
+  )
+```
+### Baseline Demographics
+```{r adsl-demographics}
+adsl |>
+  filter(SAFFL == "Y") |>
+  group_by(ARM) |>
+  summarise(
+    N = n()
+    Mean_Age = round(mean(AGE, na.rm = TRUE), 1),
+    SD_Age = 
+  )
