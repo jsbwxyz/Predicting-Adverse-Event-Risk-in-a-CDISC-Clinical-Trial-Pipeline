@@ -73,5 +73,5 @@ adsl <- adsl |>
   mutate(SAFFL = if_else(!is.na(TRTSDT) & ARMCD != "SCRNFAIL", "Y", "N"))
 
 # Save output for next step
-saveRDS(adsl, "/home/jeremy/Documents/GitHub/clinical-adam-pipeline/data/adam/adsl.rds")
+saveRDS(adsl, "data/adam/adsl.rds")
 message("ADSL created: ", nrow(adsl), " subjects")

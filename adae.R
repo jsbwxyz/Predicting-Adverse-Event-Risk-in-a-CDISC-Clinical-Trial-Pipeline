@@ -14,7 +14,7 @@ library(lubridate)
 
 # Load source data
 data(ae)                              # raw adverse events from SDTM
-adsl <- readRDS("/home/jeremy/Documents/GitHub/clinical-adam-pipeline/data/adsl.rds") # load the ADSL we already built
+adsl <- readRDS("data/adam/adsl.rds") # load the ADSL we already built
 
 # see the structure and first few rows
 # glimpse(ae)
@@ -63,6 +63,6 @@ adae <- adae |>
   )
 
 # Save output
-saveRDS(adae, "/home/jeremy/Documents/GitHub/clinical-adam-pipeline/data/adam/adae.rds")
+saveRDS(adae, "data/adam/adae.rds")
 message("ADAE created: ", nrow(adae), " adverse event records")
 message("Treatment emergent AEs: ", sum(adae$TRTEMFL == "Y", na.rm = TRUE))

@@ -14,7 +14,7 @@ library(lubridate)
 
 # Load source data
 data(ds)                               # disposition domain - contains study completion/withdrawal info
-adsl <- readRDS("/home/jeremy/Documents/GitHub/clinical-adam-pipeline/data/adam/adae.rds")  # load ADSL we already built
+adsl <- readRDS("data/adam/adsl.rds")  # load ADSL we already built
 
 # Exploring what disposition reasons exist in DS
 #    This tells us what events can be used
@@ -73,6 +73,7 @@ adtte |>
   print()
 
 # Save output
-saveRDS(adtte, "/home/jeremy/Documents/GitHub/clinical-adam-pipeline/data/adam/adtte.rds")
+saveRDS(adtte, "data/adam/adtte.rds")
 message("ADTTE created: ", nrow(adtte), " patients")
 message("Censored: ", sum(adtte$CNSR == 1, na.rm = TRUE))
+
