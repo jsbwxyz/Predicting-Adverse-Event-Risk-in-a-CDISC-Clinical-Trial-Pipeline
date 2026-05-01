@@ -1,12 +1,15 @@
 ---
-title: "Clinical ADaM Pipeline"
-subtitle: "CDISC Pilot Study, Xanomeline vs Placebo"
+title: "Predicting Adverse Event Risk in a CDISC Clinical Trial Pipeline"
 author: "Jeremy Barton"
 date: "`r Sys.Date()`"
 output:
+  html_document:
+    toc: true
+    df_print: paged
   pdf_document:
     toc: true
     number_sections: true
+subtitle: CDISC Pilot Study, Xanomeline vs Placebo
 geometry: margin=1in
 ---
 
