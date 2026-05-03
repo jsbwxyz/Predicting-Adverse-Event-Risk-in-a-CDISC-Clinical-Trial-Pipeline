@@ -32,12 +32,29 @@ library(ggsurvfit)
 library(broom)
 library(pROC)
 library(scales)
+library(ggplot2)
 ```
 
 ```{r load-data}
 adsl  <- readRDS("data/adam/adsl.rds")
 adae  <- readRDS("data/adam/adae.rds")
 adtte <- readRDS("data/adam/adtte.rds")
+```
+
+```{r theme}
+arm_palette <- c(
+  "Placebo" = "#4C9F70",
+  "Xanomeline Low Dose" = "#3B7DD8",
+  "Xanomeline High Dose" = "#D9534F"
+)
+
+theme_clinical <- theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 12),
+    plot.subtitle = element_text(color = "grey40", size = 10),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
 ```
 
 # Introduction and Overview
@@ -109,6 +126,22 @@ demo_table |>
   )
 ```
 
+```{r demo-viz, fig.width=7, fig.height=3.5}
+adsl |>
+  filter(SAFFL == "Y") |>
+  ggplot(aes(x = ARM, y = AGE, fill = ARM)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.4) +
+  geom_jitter(width = 0.15, size = 0.8, alpha = 0.4) +
+  scale_fill_manual(values = arm_palette) +
+  labs(
+    title = "Age Distribution by Treatment Arm",
+    subtitle = "Safety Population (N = 254)",
+    x = NULL, y = "Age (years)"
+  ) +
+  theme_clinical +
+  theme(legend.position = "none")
+```
+
 ```{r demo-findings, include=FALSE}
 pct_f_placebo <- demo_table$Pct_Female[demo_table$ARM == "Placebo"]
 pct_f_high    <- demo_table$Pct_Female[demo_table$ARM == "Xanomeline High Dose"]
@@ -116,7 +149,7 @@ pct_f_low     <- demo_table$Pct_Female[demo_table$ARM == "Xanomeline Low Dose"]
 mean_age_range <- range(demo_table$Mean_Age)
 ```
 
-**Key finding.** The three arms are well balanced on age, with mean ages ranging from `r mean_age_range[1]` to `r mean_age_range[2]` years. Sex distribution shows a notable imbalance, however: the Xanomeline High Dose arm enrolled `r pct_f_high`% female versus `r pct_f_placebo`% in Placebo and `r pct_f_low`% in Low Dose. This warrants attention in any subsequent analysis comparing arms, since sex can confound tolerability comparisons.
+The three arms are well balanced on age, with mean ages ranging from `r mean_age_range[1]` to `r mean_age_range[2]` years and overlapping distributions visible in the boxplot above. Sex distribution shows a notable imbalance, however: the Xanomeline High Dose arm enrolled `r pct_f_high`% female versus `r pct_f_placebo`% in Placebo and `r pct_f_low`% in Low Dose. This warrants attention in any subsequent analysis comparing arms, since sex can confound tolerability comparisons.
 
 ## ADAE: Adverse Event Profile by Treatment Arm
 
@@ -148,6 +181,22 @@ ae_overall |>
   )
 ```
 
+```{r ae-overall-viz, fig.width=7, fig.height=3.5}
+ae_overall |>
+  ggplot(aes(x = ARM, y = Events_per_Patient, fill = ARM)) +
+  geom_col(width = 0.6, alpha = 0.85) +
+  geom_text(aes(label = Events_per_Patient), vjust = -0.4, size = 3.6) +
+  scale_fill_manual(values = arm_palette) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(
+    title = "Treatment-Emergent AEs per Patient",
+    subtitle = "Both Xanomeline arms exceed Placebo",
+    x = NULL, y = "Events per patient"
+  ) +
+  theme_clinical +
+  theme(legend.position = "none")
+```
+
 ```{r ae-findings, include=FALSE}
 ev_pl   <- ae_overall$Events_per_Patient[ae_overall$ARM == "Placebo"]
 ev_high <- ae_overall$Events_per_Patient[ae_overall$ARM == "Xanomeline High Dose"]
@@ -157,7 +206,7 @@ ratio_low  <- round(ev_low  / ev_pl, 2)
 max_serious <- max(ae_overall$Pct_Serious)
 ```
 
-**Key finding.** Both Xanomeline arms produced more events per patient than Placebo: `r ratio_high`x for High Dose (`r ev_high` vs. `r ev_pl` events/patient) and `r ratio_low`x for Low Dose (`r ev_low` vs. `r ev_pl`). Serious AEs were rare across all arms (no greater than `r max_serious`%), suggesting the differential signal is driven by frequency of nuisance events rather than severity.
+Both Xanomeline arms produced more events per patient than Placebo: `r ratio_high`x for High Dose (`r ev_high` vs. `r ev_pl` events/patient) and `r ratio_low`x for Low Dose (`r ev_low` vs. `r ev_pl`). Serious AEs were rare across all arms (no greater than `r max_serious`%), suggesting the differential signal is driven by frequency of nuisance events rather than severity.
 
 ### Top System Organ Classes by Arm
 
@@ -187,6 +236,36 @@ soc_table |>
   )
 ```
 
+```{r soc-viz, fig.width=7.5, fig.height=4.5}
+adae |>
+  filter(TRTEMFL == "Y") |>
+  count(AEBODSYS, ARM) |>
+  group_by(AEBODSYS) |>
+  mutate(total = sum(n)) |>
+  ungroup() |>
+  filter(AEBODSYS %in% (
+    adae |>
+      filter(TRTEMFL == "Y") |>
+      count(AEBODSYS) |>
+      arrange(desc(n)) |>
+      head(8) |>
+      pull(AEBODSYS)
+  )) |>
+  mutate(
+    AEBODSYS = tools::toTitleCase(tolower(AEBODSYS)),
+    AEBODSYS = factor(AEBODSYS, levels = unique(AEBODSYS[order(total)]))
+  ) |>
+  ggplot(aes(x = n, y = AEBODSYS, fill = ARM)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.65, alpha = 0.85) +
+  scale_fill_manual(values = arm_palette) +
+  labs(
+    title = "Top System Organ Classes by Treatment Arm",
+    subtitle = "Application-site SOCs concentrate in the Xanomeline arms",
+    x = "Number of TEAEs", y = NULL, fill = NULL
+  ) +
+  theme_clinical
+```
+
 ```{r soc-findings, include=FALSE}
 top_soc <- soc_table$SOC[1]
 top_soc_pl  <- soc_table$Plac[1]
@@ -194,7 +273,7 @@ top_soc_high <- soc_table$`Xan High`[1]
 top_soc_low  <- soc_table$`Xan Low`[1]
 ```
 
-**Key finding.** The leading system organ class is **`r tools::toTitleCase(tolower(top_soc))`**, with `r top_soc_high` events on Xanomeline High Dose and `r top_soc_low` on Low Dose, compared to `r top_soc_pl` on Placebo. Together with skin and subcutaneous tissue disorders, these two SOCs disproportionately drive the Xanomeline safety signal, consistent with the known application-site tolerability profile of the Xanomeline transdermal patch. Systemic SOCs (cardiac, gastrointestinal, nervous system) appear comparable across arms.
+The leading system organ class is **`r tools::toTitleCase(tolower(top_soc))`**, with `r top_soc_high` events on Xanomeline High Dose and `r top_soc_low` on Low Dose, compared to `r top_soc_pl` on Placebo. Together with skin and subcutaneous tissue disorders, these two SOCs disproportionately drive the Xanomeline safety signal, consistent with the known application-site tolerability profile of the Xanomeline transdermal patch. Systemic SOCs (cardiac, gastrointestinal, nervous system) appear comparable across arms.
 
 ## ADTTE: Time to Treatment Discontinuation
 
@@ -207,6 +286,8 @@ survfit2(Surv(AVAL, 1 - CNSR) ~ ARM, data = adtte) |>
   ggsurvfit() +
   add_confidence_interval() +
   add_risktable() +
+  scale_color_manual(values = arm_palette) +
+  scale_fill_manual(values = arm_palette) +
   labs(
     title = "Time to Treatment Discontinuation by Arm",
     x = "Days from First Dose",
@@ -247,11 +328,11 @@ med_low  <- km_summary$Median_Days[km_summary$ARM == "Xanomeline Low Dose"]
 ratio_pl_high <- round(med_pl / med_high, 1)
 ```
 
-**Key finding.** The log-rank test is highly significant ($\chi^2$ = `r chisq_val`, `r df_val` df, p `r p_text`), confirming that time-to-discontinuation differs across arms. Median time on treatment was `r med_pl` days for Placebo, `r med_low` days for Low Dose, and `r med_high` days for High Dose. Patients on Placebo remained on treatment roughly `r ratio_pl_high`x longer than those on High Dose, with a clear dose-response gradient between Low and High Dose arms.
+The log-rank test is highly significant ($\chi^2$ = `r chisq_val`, `r df_val` df, p `r p_text`), confirming that time-to-discontinuation differs across arms. Median time on treatment was `r med_pl` days for Placebo, `r med_low` days for Low Dose, and `r med_high` days for High Dose. Patients on Placebo remained on treatment roughly `r ratio_pl_high`x longer than those on High Dose, with a clear dose-response gradient between Low and High Dose arms.
 
 # Predictive Modeling: Baseline Risk Stratification
 
-The JD calls for predictive modeling and patient stratification. To do this rigorously, two separate models are fit: a *baseline-only* risk model (using only pre-treatment characteristics) and a *full* model that adds treatment arm. Mixing the two would conflate intrinsic patient risk with the trial's treatment effect, so they are kept distinct.
+Patient stratification is the central goal of this section. Two complementary models are fit: a *baseline-only* risk model, using only pre-treatment characteristics (AGE, SEX), and a *full* model that adds treatment arm. Keeping them separate matters because mixing them would conflate intrinsic patient risk with the trial's treatment effect; the baseline model captures who is at risk before any drug is given, while the full model layers on what the drug itself contributes.
 
 ```{r build-modeling-data, include=FALSE}
 patient_ae <- adae |>
@@ -273,6 +354,56 @@ teae_rate  <- round(mean(modeling_data$HAD_TEAE) * 100, 1)
 ```
 
 The modeling cohort comprises **`r n_model` patients** in the safety population. The overall TEAE incidence is **`r teae_rate`%**, an unusually high event rate that has implications for model performance discussed below.
+
+## Stratification Overview
+
+Before walking through the modeling math, the chart below shows what stratification looks like in this cohort: every patient is plotted by their full-model predicted risk, sorted from lowest to highest, colored by treatment arm, and bucketed into Low/Medium/High tertiles. This is the visual the entire predictive section is building toward: a defensible way to sort patients by adverse event likelihood.
+
+```{r stratification-viz, fig.width=7.5, fig.height=4.5}
+# Need full model first to plot
+.full_for_plot <- glm(HAD_TEAE ~ AGE + SEX + ARM, data = modeling_data, family = binomial)
+modeling_data$full_pred_plot <- predict(.full_for_plot, type = "response")
+
+plot_data <- modeling_data |>
+  arrange(full_pred_plot) |>
+  mutate(
+    rank = row_number(),
+    risk_tier_plot = cut(
+      full_pred_plot,
+      breaks = quantile(full_pred_plot, c(0, 0.33, 0.67, 1)),
+      labels = c("Low", "Medium", "High"),
+      include.lowest = TRUE
+    )
+  )
+
+tier_breaks <- plot_data |>
+  group_by(risk_tier_plot) |>
+  summarise(boundary = max(rank), .groups = "drop") |>
+  pull(boundary)
+
+ggplot(plot_data, aes(x = rank, y = full_pred_plot)) +
+  geom_vline(xintercept = head(tier_breaks, -1), linetype = "dashed", color = "grey60") +
+  geom_point(aes(color = ARM, shape = factor(HAD_TEAE)), size = 1.6, alpha = 0.85) +
+  scale_color_manual(values = arm_palette, name = "Treatment Arm") +
+  scale_shape_manual(
+    values = c(`0` = 4, `1` = 16),
+    labels = c("No TEAE", "Had TEAE"),
+    name = "Outcome"
+  ) +
+  annotate("text", x = tier_breaks[1] / 2, y = 0.62, label = "Low", color = "grey30", size = 3.5) +
+  annotate("text", x = (tier_breaks[1] + tier_breaks[2]) / 2, y = 0.62, label = "Medium", color = "grey30", size = 3.5) +
+  annotate("text", x = (tier_breaks[2] + nrow(plot_data)) / 2, y = 0.62, label = "High", color = "grey30", size = 3.5) +
+  scale_y_continuous(labels = percent, limits = c(0.6, 1)) +
+  labs(
+    title = "Patient Stratification: Predicted TEAE Risk by Tier",
+    subtitle = "Each point = one patient; tiers split at predicted-risk tertiles",
+    x = "Patients ranked by predicted risk (low to high)",
+    y = "Predicted TEAE probability"
+  ) +
+  theme_clinical
+```
+
+The structure here makes the dominant signal visible: Placebo patients (green) cluster in the Low tier, Xanomeline patients (blue and red) dominate Medium and High. Filled circles mark patients who actually had a TEAE; their density visibly increases left-to-right, which is what calibration is supposed to look like.
 
 ## Model 1: Baseline-Only Risk
 
@@ -324,7 +455,33 @@ p_high  <- signif(coefs$p.value[coefs$term == "ARMXanomeline High Dose"], 2)
 p_low   <- signif(coefs$p.value[coefs$term == "ARMXanomeline Low Dose"], 2)
 ```
 
-**Key finding.** Treatment arm dominates the full model. Both Xanomeline arms carry significantly elevated TEAE odds vs. Placebo (Low Dose OR = `r or_low`, p = `r p_low`; High Dose OR = `r or_high`, p = `r p_high`), while age and sex remain non-significant. The full-model AUC of **`r full_auc`** indicates modest discrimination: informative for population-level stratification but insufficient for confident individual-patient prediction.
+```{r or-forest, fig.width=7, fig.height=3}
+coefs |>
+  filter(term != "(Intercept)") |>
+  mutate(
+    term = recode(term,
+      "AGE" = "Age (per year)",
+      "SEXM" = "Male (vs. Female)",
+      "ARMXanomeline High Dose" = "Xanomeline High Dose",
+      "ARMXanomeline Low Dose"  = "Xanomeline Low Dose"
+    ),
+    sig = ifelse(p.value < 0.05, "Significant", "Not significant")
+  ) |>
+  ggplot(aes(x = estimate, y = reorder(term, estimate), color = sig)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0.2) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("Significant" = "#D9534F", "Not significant" = "grey60"), name = NULL) +
+  scale_x_log10() +
+  labs(
+    title = "Full Model: Odds Ratios for TEAE",
+    subtitle = "Reference = Placebo / Female; bars are 95% CI",
+    x = "Odds Ratio (log scale)", y = NULL
+  ) +
+  theme_clinical
+```
+
+Treatment arm dominates the full model. Both Xanomeline arms carry significantly elevated TEAE odds vs. Placebo (Low Dose OR = `r or_low`, p = `r p_low`; High Dose OR = `r or_high`, p = `r p_high`), while age and sex remain non-significant. The full-model AUC of **`r full_auc`** indicates modest discrimination: informative for population-level stratification but insufficient for confident individual-patient prediction.
 
 ## Calibration Across Risk Tiers
 
@@ -356,13 +513,34 @@ calib_table |>
   )
 ```
 
+```{r calib-viz, fig.width=6.5, fig.height=3.8}
+calib_table |>
+  pivot_longer(c(Mean_Predicted_Prob, Observed_AE_Rate),
+               names_to = "metric", values_to = "value") |>
+  mutate(metric = recode(metric,
+                         "Mean_Predicted_Prob" = "Predicted",
+                         "Observed_AE_Rate" = "Observed")) |>
+  ggplot(aes(x = risk_tier, y = value, fill = metric)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6, alpha = 0.85) +
+  geom_text(aes(label = percent(value, accuracy = 0.1)),
+            position = position_dodge(width = 0.7), vjust = -0.4, size = 3.4) +
+  scale_fill_manual(values = c("Predicted" = "#7BAFD4", "Observed" = "#1F3864")) +
+  scale_y_continuous(labels = percent, limits = c(0, 1.05)) +
+  labs(
+    title = "Calibration: Predicted vs. Observed AE Rate by Risk Tier",
+    subtitle = "Bars rise together = well-calibrated model",
+    x = "Risk Tier", y = "AE rate", fill = NULL
+  ) +
+  theme_clinical
+```
+
 ```{r calib-findings, include=FALSE}
 obs_low  <- calib_table$Observed_AE_Rate[calib_table$risk_tier == "Low"]
 obs_med  <- calib_table$Observed_AE_Rate[calib_table$risk_tier == "Medium"]
 obs_high <- calib_table$Observed_AE_Rate[calib_table$risk_tier == "High"]
 ```
 
-**Key finding.** Observed AE rates rise monotonically with predicted risk tier (`r percent(obs_low, accuracy=0.1)`, `r percent(obs_med, accuracy=0.1)`, `r percent(obs_high, accuracy=0.1)`), confirming the model is well-calibrated even though discriminative power is modest. This is the property that matters for decision support: a patient flagged "High risk" really does have a higher AE rate than one flagged "Low."
+Observed AE rates rise monotonically with predicted risk tier (`r percent(obs_low, accuracy=0.1)`, `r percent(obs_med, accuracy=0.1)`, `r percent(obs_high, accuracy=0.1)`), confirming the model is well-calibrated even though discriminative power is modest. This is the property that matters for decision support: a patient flagged "High risk" really does have a higher AE rate than one flagged "Low."
 
 # Limitations and Next Iteration
 
@@ -376,12 +554,4 @@ A rigorous report names the limits of its own analysis. Three are worth surfacin
 
 # Summary
 
-This pipeline demonstrates the end-to-end workflow from CDISC SDTM source data through analysis-ready ADaM datasets to translational decision tools:
-
-- **Reproducible data engineering**: SDTM to ADaM transformation using the pharmaverse R ecosystem, consistent with FDA submission standards and chain-of-custody traceability.
-- **Adverse event signal detection**: `TRTEMFL` derivation isolated 1,120 treatment-emergent events; the leading SOCs implicate application-site tolerability of the Xanomeline transdermal patch.
-- **Translational modeling**: Kaplan-Meier survival analysis with log-rank testing (p `r p_text`) quantifies a clear dose-response gradient in time-on-treatment.
-- **Patient stratification**: Two complementary logistic regression models (baseline-only and full) separate intrinsic patient risk from treatment effect; calibration is preserved across predicted risk tiers.
-- **Methodological self-evaluation**: Outcome saturation, limited baseline features, and lack of held-out validation are explicitly named as next-iteration priorities.
-
-The same architecture generalizes to vaccine R&D workflows: SDTM-style structured immunological and clinical data can flow through analogous analysis-ready datasets to support antigen prioritization, translational strategy, and clinical study design decisions.
+This pipeline demonstrates the end-to-end workflow from CDISC SDTM source data through analysis-ready ADaM datasets to downstream decision tools. Source data was transformed into ADaM datasets using the pharmaverse R ecosystem, following the same standards used in FDA submissions, and adverse events were classified via the TRTEMFL flag to isolate 1,120 treatment-emergent events; the leading System Organ Classes pointed to application-site tolerability of the Xanomeline transdermal patch. A Kaplan-Meier analysis with log-rank testing (p < 0.001) showed a clear dose-response gradient in time-on-treatment, and two logistic regression models (one baseline-only, one with treatment arm) were fit to separate underlying patient risk from the treatment effect, with calibration holding across predicted risk tiers. The report also names its own limits: outcome saturation, a thin baseline feature set, and the absence of held-out validation as the natural next steps. The same architecture extends cleanly to other research settings where structured clinical or biological data needs to move from raw collection through analysis-ready form to a model that informs a real decision.
