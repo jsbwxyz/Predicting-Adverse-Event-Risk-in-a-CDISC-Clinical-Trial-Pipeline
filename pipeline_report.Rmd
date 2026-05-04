@@ -1,7 +1,7 @@
 ---
 title: "Predicting Adverse Event Risk in a CDISC Clinical Trial Pipeline"
 author: "Jeremy Barton"
-date: "`r Sys.Date()`"
+date: "`2026-02-19"
 output:
   html_document:
     toc: true
